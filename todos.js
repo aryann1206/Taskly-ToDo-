@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-let {  userLoginSchema, mark } = require("./zod");
+let { userZodSchema,userLoginSchema, mark } = require("./zod");
 let jwt = require("jsonwebtoken");
 let mongoose = require("mongoose");
 let bcrypt = require("bcrypt");
@@ -8,9 +8,9 @@ let { userModel, todoModel } = require("./db");
 let secret = "jbhdvfldfj";
 router.post("/signup", async (req, res) => {
     try {
-        let { success, data, error } = userLoginSchema.safeParse(req.body);
+        let { success, data, error } = userZodSchema.safeParse(req.body);
         if (!success) {
-            res.status(401).json({
+            res.status(400).json({
                 message: "not following schema",
                 error: error
             });
@@ -23,7 +23,7 @@ router.post("/signup", async (req, res) => {
             });
         }
         let hashpass = await bcrypt.hash(data.password, 10);
-        let user = await userModel.create({ username: data.username, email: data.email, password: hashpass, todo: [] });
+        let user = await userModel.create({ username: data.username,email: data.email, password: hashpass });
         if (user) {
             let token = jwt.sign({ username: user.username, userId: user._id }, secret);
             res.status(201).json({
@@ -36,7 +36,7 @@ router.post("/signup", async (req, res) => {
     catch (e) {
         res.status(500).json({
             message: "internet error",
-            error: error
+            error: e.message
         });
         return;
     }
@@ -154,7 +154,7 @@ router.get("/todos", MiddlewareAuth, async (req, res) => {
 
 
 
-router.put("/todos/:todoId", async (req, res) => {
+router.put("/todos/:todoId", MiddlewareAuth, async (req, res) => {
     try {
         let { success, data, error } = mark.safeParse(req.body);
         if (!success) {
@@ -166,9 +166,19 @@ router.put("/todos/:todoId", async (req, res) => {
         }
 
         const todoId = req.params.todoId;
-        const todo = await todoModel.findById(todoId);
+        const todo = await todoModel.findOne({
+            _id: todoId,
+            userId: req.userId
+        });
+        if (!todo) {
+            return res.status(404).json({
+                message: "Todo not found or unauthorized"
+            });
+        }
+
+
         todo.completed = data.completed;
-        todo.save();
+        await todo.save();
         res.status(200).json({
             message: "Your " + todo.title + " marked" + data.completed
         })

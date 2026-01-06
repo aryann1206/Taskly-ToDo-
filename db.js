@@ -4,7 +4,7 @@ try {
     mongoose.connect("");
 }
 catch (e) {
-    res.status(5000).json({
+    res.status(500).json({
         message:"internet error",
         error:e
     });
@@ -15,7 +15,7 @@ catch (e) {
 let userSchema = new mongoose.Schema({
     username:{type:String},
     password:{type:String},
-    email:{type:String,unique:true}
+    email:{type:String,unique:true},
 })
 
 
