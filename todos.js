@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-let { userZodSchema, userLoginSchema, mark } = require("./zod");
+let {  userLoginSchema, mark } = require("./zod");
 let jwt = require("jsonwebtoken");
 let mongoose = require("mongoose");
 let bcrypt = require("bcrypt");
