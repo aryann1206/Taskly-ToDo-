@@ -3,6 +3,7 @@ const router = express.Router();
 let { userZodSchema, userLoginSchema, mark } = require("./zod");
 let jwt = require("jsonwebtoken");
 let mongoose = require("mongoose");
+let bcrypt = require("bcrypt");
 let { userModel, todoModel } = require("./db");
 let secret = "jbhdvfldfj";
 router.post("/signup", async (req, res) => {
@@ -21,7 +22,8 @@ router.post("/signup", async (req, res) => {
                 message: "Email already exists"
             });
         }
-        let user = await userModel.create({ username: data.username, email: data.email, password: data.password, todo: [] });
+        let hashpass = await bcrypt.hash(data.password, 10);
+        let user = await userModel.create({ username: data.username, email: data.email, password: hashpass, todo: [] });
         if (user) {
             let token = jwt.sign({ username: user.username, userId: user._id }, secret);
             res.status(201).json({
@@ -43,36 +45,50 @@ router.post("/signup", async (req, res) => {
 
 
 router.post("/signin", async (req, res) => {
-    let { success, data, error } = userLoginSchema.safeParse(req.body);
+    const { success, data, error } = userLoginSchema.safeParse(req.body);
+
     if (!success) {
-        res.status(401).json({
-            message: "not following schema",
+        return res.status(400).json({
+            message: "Not following schema",
             error: error
         });
-        return;
     }
 
     try {
-        let user = await userModel.findOne({ email: data.email, password: data.password });
-        if (user) {
-            let token = jwt.sign({ username: user.username, userId: user._id }, secret);
-            res.status(201).json({
-                message: "successfully login",
-                token: token
-            });
-            return;
-        }
+
+        const user = await userModel.findOne({ email: data.email });
+
         if (!user) {
-            return res.status(404).json({ message: "User not found" });
+            return res.status(404).json({
+                message: "User not found"
+            });
         }
-    }
-    catch (e) {
+
+        const isMatch = await bcrypt.compare(data.password, user.password);
+
+        if (!isMatch) {
+            return res.status(401).json({
+                message: "Invalid password"
+            });
+        }
+
+        const token = jwt.sign(
+            { username: user.username, userId: user._id },
+            secret
+        );
+
+        return res.status(200).json({
+            message: "Successfully logged in",
+            token: token
+        });
+
+    } catch (e) {
         return res.status(500).json({
             message: "Server error",
             error: e.message
-        })
+        });
     }
-})
+});
 
 
 
@@ -199,6 +215,6 @@ router.delete("/todos/:todoId", MiddlewareAuth, async (req, res) => {
 
 
 
-module.exports={
+module.exports = {
     router
 }
